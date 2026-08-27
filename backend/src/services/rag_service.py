@@ -1,0 +1,113 @@
+import uuid
+from typing import List, Dict, Any, Tuple
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from src.models.document import Document, Chunk
+from src.services.embedding_service import EmbeddingService
+
+STRICT_REFERENCE_SYSTEM_PROMPT = """You are DocuMind AI, a strict and secure document reference assistant. Your sole responsibility is to answer user queries using EXCLUSIVELY the provided document excerpts below.
+
+STRICT GROUNDING RULES:
+1. Ground every claim directly and factually in the provided Context excerpts.
+2. If the provided excerpts do NOT contain the answer, you MUST state exactly:
+   "I cannot find this information in your uploaded documents."
+3. Do NOT use external general knowledge, guess, or hallucinate facts not present in the context.
+4. If a question is general chit-chat (e.g. "tell me a joke" or "what is the weather"), politely reply that you can only answer questions about the user's uploaded documents.
+5. Format your answers clearly with concise markdown paragraphs or bullet points where appropriate.
+"""
+
+class RAGService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.embedding_service = EmbeddingService()
+
+    async def search_similar_chunks(
+        self,
+        user_id: uuid.UUID,
+        query: str,
+        top_k: int = 5
+    ) -> List[Dict[str, Any]]:
+        # 1. Generate query embedding
+        query_vector = await self.embedding_service.embed_query(query)
+
+        # 2. Strict tenant-scoped pgvector similarity search
+        stmt = (
+            select(
+                Chunk.id,
+                Chunk.document_id,
+                Document.filename.label("document_name"),
+                Chunk.page_number,
+                Chunk.content,
+                (Chunk.embedding.cosine_distance(query_vector)).label("distance")
+            )
+            .join(Document, Document.id == Chunk.document_id)
+            .where(
+                Chunk.user_id == user_id,
+                Document.user_id == user_id,
+                Document.status == "ready"
+            )
+            .order_by("distance")
+            .limit(top_k)
+        )
+
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        results = []
+        for row in rows:
+            results.append({
+                "chunk_id": str(row.id),
+                "document_id": str(row.document_id),
+                "document_name": row.document_name,
+                "page_number": row.page_number,
+                "content": row.content,
+                "distance": float(row.distance)
+            })
+        return results
+
+    def build_prompt_with_context(
+        self,
+        query: str,
+        chunks: List[Dict[str, Any]],
+        conversation_history: List[Dict[str, str]] = None
+    ) -> Tuple[str, List[Dict[str, Any]]]:
+        if not chunks:
+            context_block = "No relevant document excerpts found."
+            citations = []
+        else:
+            context_pieces = []
+            citations = []
+            seen_sources = set()
+
+            for i, c in enumerate(chunks, start=1):
+                page_str = f"Page {c['page_number']}" if c['page_number'] else "Document Section"
+                context_pieces.append(f"[Excerpt {i}] (Source: {c['document_name']}, {page_str}):\n{c['content']}\n")
+                
+                source_key = (c['document_id'], c['page_number'])
+                if source_key not in seen_sources:
+                    seen_sources.add(source_key)
+                    snippet = c['content'][:150] + ("..." if len(c['content']) > 150 else "")
+                    citations.append({
+                        "document_id": c['document_id'],
+                        "document_name": c['document_name'],
+                        "page_number": c['page_number'],
+                        "snippet": snippet
+                    })
+
+            context_block = "\n".join(context_pieces)
+
+        history_block = ""
+        if conversation_history:
+            formatted_history = []
+            for msg in conversation_history[-4:]: # recent 4 messages for conversational continuity
+                formatted_history.append(f"{msg['role'].capitalize()}: {msg['content']}")
+            history_block = "Recent Conversation Context:\n" + "\n".join(formatted_history) + "\n\n"
+
+        full_prompt = f"""DOCUMENT CONTEXT:
+{context_block}
+
+{history_block}USER QUESTION:
+{query}
+
+ANSWER (grounded strictly in the document excerpts above):"""
+        return full_prompt, citations
