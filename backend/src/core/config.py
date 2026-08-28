@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # AI & Embeddings
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.6-flash"
-    EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
+    EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
     EMBEDDING_DIMENSION: int = 384
     
     # Ingestion & Chunking

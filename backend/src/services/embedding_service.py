@@ -1,21 +1,22 @@
 import asyncio
 import logging
-from typing import List, Any
+from typing import List, Any, Optional
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class EmbeddingService:
-    _model: Any = None
+    _model: Optional[Any] = None
 
     @classmethod
     def get_model(cls) -> Any:
         if cls._model is None:
             try:
-                from sentence_transformers import SentenceTransformer
-                cls._model = SentenceTransformer(settings.EMBEDDING_MODEL)
+                from fastembed import TextEmbedding
+                cls._model = TextEmbedding(model_name=settings.EMBEDDING_MODEL)
+                logger.info(f"Loaded FastEmbed model: {settings.EMBEDDING_MODEL}")
             except Exception as e:
-                logger.warning(f"SentenceTransformer not loaded directly: {e}. Fallback to deterministic encoder.")
+                logger.warning(f"FastEmbed TextEmbedding not loaded directly: {e}. Fallback to deterministic encoder.")
         return cls._model
 
     async def embed_query(self, text: str) -> List[float]:
@@ -25,8 +26,12 @@ class EmbeddingService:
     def _sync_embed_query(self, text: str) -> List[float]:
         model = self.get_model()
         if model is not None:
-            embedding = model.encode(text, normalize_embeddings=True)
-            return embedding.tolist()
+            try:
+                embeddings = list(model.embed([text]))
+                if embeddings:
+                    return embeddings[0].tolist()
+            except Exception as e:
+                logger.error(f"FastEmbed error encoding query: {e}")
         # Deterministic lightweight hash embedding (384-dim) fallback
         import hashlib
         import math
@@ -44,7 +49,9 @@ class EmbeddingService:
             return []
         model = self.get_model()
         if model is not None:
-            embeddings = model.encode(texts, batch_size=32, show_progress_bar=False, normalize_embeddings=True)
-            return embeddings.tolist()
+            try:
+                embeddings = [e.tolist() for e in model.embed(texts, batch_size=32)]
+                return embeddings
+            except Exception as e:
+                logger.error(f"FastEmbed error encoding documents: {e}")
         return [self._sync_embed_query(t) for t in texts]
-

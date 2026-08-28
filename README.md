@@ -19,7 +19,7 @@ graph TD
         Deps["Auth Middleware (JWT get_current_user)"]
         BG["FastAPI BackgroundTasks Ingestion"]
         Chunker["RecursiveCharacterTextSplitter (800 tok / 15% overlap)"]
-        LocalEmbed["Local sentence-transformers (all-MiniLM-L6-v2, 384-d)"]
+        LocalEmbed["FastEmbed (BAAI/bge-small-en-v1.5, 384-d)"]
         RAG["RAG Service (Strict user_id pgvector Cosine Search)"]
         GeminiAsync["Google GenAI Async Client (gemini-2.5-flash)"]
     end
@@ -90,7 +90,7 @@ graph TD
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Lifetime of access tokens in minutes | `1440` (24 hours) |
 | `GEMINI_API_KEY` | Google Gemini API Key | Set from Google AI Studio |
 | `GEMINI_MODEL` | Target Gemini model | `gemini-2.5-flash` |
-| `EMBEDDING_MODEL` | Local sentence-transformers model | `sentence-transformers/all-MiniLM-L6-v2` |
+| `EMBEDDING_MODEL` | FastEmbed embedding model | `BAAI/bge-small-en-v1.5` |
 | `MAX_FILE_SIZE_MB` | Maximum allowed document upload size | `25` |
 
 ---
@@ -153,6 +153,6 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 | Decision | Selected Approach | Alternative Rejected | Rationale |
 | :--- | :--- | :--- | :--- |
 | **Vector Storage** | Unified PostgreSQL + `pgvector` | Dedicated Vector DB (Pinecone/Milvus) | Eliminates distributed state synchronization, guarantees ACID transactions, and enables row-level tenant filtering in a single SQL query. |
-| **Embeddings** | Local `all-MiniLM-L6-v2` (384-d) | Cloud Embedding APIs | Zero network round-trip overhead on ingestion & chat streaming; lower memory & storage footprint for HNSW indexes. |
+| **Embeddings** | FastEmbed `BAAI/bge-small-en-v1.5` (384-d) | Cloud Embedding APIs | Highly optimized ONNX runtime embedding engine; zero network latency on ingestion & chat streaming; lower memory & storage footprint for HNSW indexes. |
 | **Real-Time Transport** | FastAPI WebSockets | Server-Sent Events (SSE) + HTTP POST | Full-duplex communication allows bidirectional control (client cancellation, session heartbeats, streaming token acks) without HTTP reconnect overhead. |
 | **Scroll Experience** | Smart Anchor Detection (`useAutoScroll`) | Aggressive auto-scroll | Prevents layout jumping and reading interruptions when users scroll up to read previous excerpts during streaming. |

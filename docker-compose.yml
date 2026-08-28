@@ -30,7 +30,7 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: 1440
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: gemini-3.6-flash
-      EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+      EMBEDDING_MODEL: BAAI/bge-small-en-v1.5
     ports:
       - "8000:8000"
     depends_on:
