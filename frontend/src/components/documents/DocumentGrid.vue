@@ -1,16 +1,20 @@
 <template>
-  <div class="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200/80 dark:border-gray-800 overflow-hidden shadow-sm transition-colors duration-200">
+  <div class="bg-white dark:bg-[#121915] rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden transition-colors duration-200">
+    <!-- Header -->
     <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800/80 flex items-center justify-between">
       <div class="flex items-center gap-2.5">
-        <FileText class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+        <FileText class="w-4 h-4 text-[#153826] dark:text-emerald-400" />
         <h3 class="font-semibold text-sm text-gray-900 dark:text-gray-100">
           Document Library
         </h3>
-        <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+        <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-[#153826] dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40">
           {{ documents.length }}
         </span>
       </div>
-      <span class="text-[11px] text-gray-400 dark:text-gray-500 font-medium">Auto-refreshing status</span>
+      <div class="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 font-medium">
+        <span>Auto-refreshing</span>
+        <RotateCw class="w-3 h-3 animate-spin text-gray-400" />
+      </div>
     </div>
 
     <!-- Empty State -->
@@ -24,28 +28,37 @@
 
     <!-- Responsive Table -->
     <div v-else class="overflow-x-auto">
-      <table class="w-full text-left text-sm">
-        <thead class="bg-gray-50/80 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider select-none">
+      <table class="w-full text-left text-sm min-w-[700px]">
+        <thead class="bg-gray-50/70 dark:bg-[#16221c]/40 border-b border-gray-100 dark:border-gray-800 text-[10px] text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-wider select-none">
           <tr>
-            <th class="py-3.5 px-6">Filename</th>
-            <th class="py-3.5 px-6">Document ID</th>
-            <th class="py-3.5 px-6">Upload Date</th>
-            <th class="py-3.5 px-6">Size</th>
-            <th class="py-3.5 px-6">Status</th>
-            <th class="py-3.5 px-6 text-right">Actions</th>
+            <th class="py-3.5 px-6">FILE NAME</th>
+            <th class="py-3.5 px-6">DOCUMENT ID</th>
+            <th class="py-3.5 px-6">UPLOADED ON</th>
+            <th class="py-3.5 px-6">SIZE</th>
+            <th class="py-3.5 px-6">STATUS</th>
+            <th class="py-3.5 px-6 text-right">ACTIONS</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100 dark:divide-gray-800/70">
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-800/60">
           <tr
             v-for="doc in documents"
             :key="doc.id"
-            class="hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors duration-150 cursor-default group"
+            class="hover:bg-gray-50/60 dark:hover:bg-[#16221c]/30 transition-colors duration-150 cursor-default group"
           >
             <!-- Filename -->
             <td class="py-4 px-6 font-medium text-gray-900 dark:text-gray-100">
               <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center shrink-0">
-                  <FileIcon class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <div
+                  v-if="doc.filename.toLowerCase().endsWith('.pdf')"
+                  class="w-7 h-7 rounded-lg bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-[9px] tracking-tighter"
+                >
+                  PDF
+                </div>
+                <div
+                  v-else
+                  class="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-100 dark:border-emerald-900/40 text-[#153826] dark:text-emerald-400 flex items-center justify-center shrink-0"
+                >
+                  <FileIcon class="w-3.5 h-3.5" />
                 </div>
                 <span class="truncate max-w-[220px] font-semibold text-xs text-gray-900 dark:text-white" :title="doc.filename">
                   {{ doc.filename }}
@@ -56,13 +69,13 @@
             <!-- Document UUID with copy button -->
             <td class="py-4 px-6 font-mono text-xs text-gray-500 dark:text-gray-400">
               <div class="flex items-center gap-1.5">
-                <span class="truncate max-w-[120px] bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-[11px]" :title="doc.id">
+                <span class="truncate max-w-[130px] bg-gray-100/80 dark:bg-gray-800/80 px-2 py-0.5 rounded-md text-[11px]" :title="doc.id">
                   {{ doc.id }}
                 </span>
                 <button
                   type="button"
                   @click.stop="copyId(doc.id)"
-                  class="p-1 hover:text-indigo-600 dark:hover:text-indigo-400 rounded transition-colors"
+                  class="p-1 hover:text-[#153826] dark:hover:text-emerald-400 rounded transition-colors"
                   :title="copiedId === doc.id ? 'Copied!' : 'Copy Document ID'"
                 >
                   <Check v-if="copiedId === doc.id" class="w-3.5 h-3.5 text-emerald-500" />
@@ -90,11 +103,11 @@
             </td>
 
             <!-- Actions -->
-            <td class="py-4 px-6 text-right space-x-1.5">
+            <td class="py-4 px-6 text-right space-x-1">
               <button
                 type="button"
                 @click.stop="$emit('viewDetails', doc)"
-                class="p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors inline-flex items-center"
+                class="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors inline-flex items-center"
                 title="View Details"
               >
                 <Eye class="w-4 h-4" />
@@ -102,7 +115,7 @@
               <button
                 type="button"
                 @click.stop="$emit('deleteDoc', doc)"
-                class="p-2 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors inline-flex items-center"
+                class="p-1.5 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors inline-flex items-center"
                 title="Delete Document"
               >
                 <Trash2 class="w-4 h-4" />
@@ -117,7 +130,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { FileText, File as FileIcon, Copy, Check, Eye, Trash2, Inbox } from 'lucide-vue-next'
+import { FileText, File as FileIcon, Copy, Check, Eye, Trash2, Inbox, RotateCw } from 'lucide-vue-next'
 import StatusBadge from '../common/StatusBadge.vue'
 import type { DocumentItem } from '../../services/documentService'
 

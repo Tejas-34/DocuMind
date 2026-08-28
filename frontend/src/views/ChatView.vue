@@ -1,15 +1,83 @@
 <template>
-  <div class="flex h-[calc(100vh-4rem)] overflow-hidden">
-    <!-- Sidebar -->
-    <ChatSidebar
-      :sessions="chatStore.sessions"
-      :activeSessionId="chatStore.activeSession?.id || null"
-      @newChat="handleNewChat"
-      @selectSession="handleSelectSession"
-      @renameSession="openRenameModal"
-      @deleteSession="handleDeleteSession"
-      @clearContext="isClearContextModalOpen = true"
-    />
+  <div class="flex flex-col md:flex-row h-[calc(100vh-4rem)] overflow-hidden relative">
+    <!-- Mobile Top Bar with Hamburger Trigger -->
+    <div class="md:hidden flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-[#0f1713]">
+      <button
+        type="button"
+        @click="isMobileSidebarOpen = true"
+        class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200/60 dark:border-gray-700 text-xs font-medium cursor-pointer"
+      >
+        <Menu class="w-4 h-4 text-[#153826] dark:text-emerald-400" />
+        <span>Threads</span>
+      </button>
+
+      <span class="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate max-w-[200px]">
+        {{ chatStore.activeSession?.title || 'DocuMind AI' }}
+      </span>
+
+      <button
+        type="button"
+        @click="handleNewChat"
+        class="p-1.5 rounded-xl bg-[#153826] text-white cursor-pointer"
+        title="New Chat"
+      >
+        <Plus class="w-4 h-4" />
+      </button>
+    </div>
+
+    <!-- Desktop Docked Sidebar -->
+    <div class="hidden md:block h-full shrink-0">
+      <ChatSidebar
+        :sessions="chatStore.sessions"
+        :activeSessionId="chatStore.activeSession?.id || null"
+        @newChat="handleNewChat"
+        @selectSession="handleSelectSession"
+        @renameSession="openRenameModal"
+        @deleteSession="handleDeleteSession"
+        @clearContext="isClearContextModalOpen = true"
+      />
+    </div>
+
+    <!-- Mobile Collapsible Sidebar Drawer with Overlay Backdrop -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition-opacity duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition-opacity duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="isMobileSidebarOpen"
+          class="fixed inset-0 z-50 md:hidden bg-black/40 backdrop-blur-xs flex"
+          @click.self="isMobileSidebarOpen = false"
+        >
+          <div class="w-80 max-w-[85vw] h-full bg-white dark:bg-[#0f1713] shadow-2xl flex flex-col transform transition-transform">
+            <div class="p-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <span class="text-xs font-bold text-gray-900 dark:text-white pl-2">Conversation History</span>
+              <button
+                @click="isMobileSidebarOpen = false"
+                class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <X class="w-4 h-4" />
+              </button>
+            </div>
+            <div class="flex-1 overflow-hidden">
+              <ChatSidebar
+                :sessions="chatStore.sessions"
+                :activeSessionId="chatStore.activeSession?.id || null"
+                @newChat="handleMobileNewChat"
+                @selectSession="handleMobileSelectSession"
+                @renameSession="openRenameModal"
+                @deleteSession="handleDeleteSession"
+                @clearContext="isClearContextModalOpen = true"
+              />
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Main Chat Window -->
     <ChatWindow
@@ -39,19 +107,19 @@
           v-model="renameTitle"
           type="text"
           required
-          class="w-full px-3.5 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          class="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-[#153826] focus:border-[#153826] focus:outline-none"
         />
         <div class="flex justify-end gap-2 pt-2">
           <button
             type="button"
             @click="isRenameModalOpen = false"
-            class="px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+            class="px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
-            class="px-4 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg"
+            class="px-4 py-2 text-xs font-medium text-white bg-[#153826] hover:bg-[#1b4932] rounded-xl shadow-xs transition-colors"
           >
             Save Title
           </button>
@@ -64,6 +132,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { Menu, Plus, X } from 'lucide-vue-next'
 import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
 import { useChatWebSocket } from '../composables/useChatWebSocket'
@@ -80,6 +149,7 @@ const router = useRouter()
 
 const ws = useChatWebSocket()
 
+const isMobileSidebarOpen = ref(false)
 const isClearContextModalOpen = ref(false)
 const isRenameModalOpen = ref(false)
 const renameSessionTarget = ref<ChatSession | null>(null)
@@ -117,11 +187,21 @@ const handleSelectSession = async (sessionId: string) => {
   }
 }
 
+const handleMobileSelectSession = async (sessionId: string) => {
+  isMobileSidebarOpen.value = false
+  await handleSelectSession(sessionId)
+}
+
 const handleNewChat = async () => {
   const session = await chatStore.createNewSession('New Conversation')
   if (session) {
     await handleSelectSession(session.id)
   }
+}
+
+const handleMobileNewChat = async () => {
+  isMobileSidebarOpen.value = false
+  await handleNewChat()
 }
 
 const handleSendQuery = (query: string) => {
