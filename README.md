@@ -25,9 +25,8 @@ DocuMind is an enterprise-grade, privacy-first, multi-tenant Document Q&A web ap
    ```
 
 5. Access the services:
-   - **Frontend UI**: [http://localhost](http://localhost) (or [http://localhost:5173](http://localhost:5173))
-   - **Backend API & Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-   - **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
+   - Frontend UI: [http://localhost](http://localhost) (or [http://localhost:5173](http://localhost:5173))
+   - Backend API: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 
 ### Option B: Running Locally for Development
@@ -95,22 +94,22 @@ I chose FastAPI because it works well with Python and supports asynchronous APIs
 ### Database: PostgreSQL 16 + pgvector
 I chose PostgreSQL because I need a database for users, documents, chats, and messages. I use pgvector in the same database to store and search document embeddings, so I don't need a separate vector database.
 ### Embeddings: FastEmbed + BAAI/bge-small-en-v1.5
-I use FastEmbed to generate embeddings locally. I chose BGE because it gives semantic embeddings that work well for finding relevant document chunks without using an external embedding API.
+FastEmbed to generate embeddings locally. I chose BGE because it gives semantic embeddings that work well for finding relevant document chunks without using an external embedding API.
 ### Chunks : PyPDF + LangChain Text Splitters
-I use PyPDF to extract text from uploaded PDFs. Then I split the text into smaller chunks using the Recursive Character Text Splitter so that I can search smaller and more relevant parts of the documents.
+Used PyPDF to extract text from uploaded PDFs. Then I split the text into smaller chunks using the Recursive Character Text Splitter so that I can search smaller and more relevant parts of the documents.
 ### LLM: Google Gemini + google-genai
 **Model:** `gemini-3.5-flash`
 
-I use Gemini to generate the final answer from the document chunks retrieved by the RAG system. I keep the temperature at 0 so the answers are more consistent. The response is streamed back to the frontend.
+Gemini to generate the final answer from the document chunks retrieved by the RAG system. I keep the temperature at 0 so the answers are more consistent. The response is streamed back to the frontend.
 ### State Management: Pinia
 
-I use Pinia to manage the state shared across different parts of the frontend, mainly authentication, documents, and chat.
+Used Pinia to manage the state shared across different parts of the frontend, mainly authentication, documents, and chat.
 ### Styling and Icons: Tailwind CSS + Lucide Icons
 I chose Tailwind because it makes styling the UI quick and simple. Lucide provides the icons used in the application.
 ### Authentication and Security: JWT + Password Hashing
 **Technologies:** - JWT with HS256 
 
-I use JWT for user authentication and password hashing for storing passwords securely. I also use `user_id` when accessing documents, chunks, and chats so that one user cannot access another user's data.
+JWT for user authentication and password hashing for storing passwords securely. I also use `user_id` when accessing documents, chunks, and chats so that one user cannot access another user's data.
 
 
 # RAG Flow
