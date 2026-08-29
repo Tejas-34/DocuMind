@@ -20,6 +20,11 @@ The general workflow was:
 /implement
 ```
 
+### Reference
+
+[GitHub - Spec-Driven Development with AI](https://github.blog/ai-and-ml/generative-ai/spec-driven-development-with-ai-get-started-with-a-new-open-source-toolkit/)
+
+
 ## Phase 1 — Initial Project Understanding & Planning
 
 ### /clarify

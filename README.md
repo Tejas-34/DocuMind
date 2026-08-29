@@ -131,6 +131,12 @@ The basic flow of the project is:
 11. The answer is streamed back to the frontend through WebSocket.
 
 
+## Development Prompts
+
+The major prompts used during the development of DocuMind are documented here:
+
+- [PROMPTS.md](PROMPTS.md) — Major prompts and the spec-driven development workflow used for the project.
+
 
 ## Assumptions & Known Limitations
 
