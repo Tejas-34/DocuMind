@@ -166,3 +166,58 @@ The basic flow of the project is:
 
 
 
+
+## API Endpoints
+
+The backend provides REST APIs for authentication, document management, and chat sessions.  
+It also uses a WebSocket for real-time AI response streaming.
+
+### Health Check
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/health` | Check if the API is running | Public |
+
+### Authentication
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/api/v1/auth/register` | Create a new user account | Public |
+| POST | `/api/v1/auth/login` | Login and get JWT token | Public |
+| GET | `/api/v1/auth/me` | Get current user information | JWT |
+
+### Documents
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/api/v1/documents` | Upload a document and start processing | JWT |
+| GET | `/api/v1/documents` | Get all documents of the current user | JWT |
+| GET | `/api/v1/documents/{document_id}` | Get details of a document | JWT |
+| DELETE | `/api/v1/documents/{document_id}` | Delete a document and its chunks | JWT |
+
+Supported document types:
+
+- PDF
+- TXT
+- Markdown
+
+Maximum file size: **25 MB**
+
+When a document is uploaded, it is first marked as `processing`. The backend then extracts the text, creates chunks, generates embeddings, and changes the status to `ready`.
+
+### Chat Sessions
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/api/v1/chat/sessions` | Create a new chat session | JWT |
+| GET | `/api/v1/chat/sessions` | List user's chat sessions | JWT |
+| GET | `/api/v1/chat/sessions/{session_id}` | Get session and message history | JWT |
+| PATCH | `/api/v1/chat/sessions/{session_id}` | Rename a chat session | JWT |
+| DELETE | `/api/v1/chat/sessions/{session_id}` | Delete a chat session and messages | JWT |
+
+### Chat WebSocket
+
+The chat uses WebSocket for real-time communication and streaming AI responses.
+
+```text
+WS /api/v1/ws/chat/{session_id}?token={JWT_ACCESS_TOKEN}
