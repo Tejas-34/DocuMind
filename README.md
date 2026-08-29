@@ -145,28 +145,17 @@ The major prompts used during the development of DocuMind are documented here:
 - **File Format Constraints**: Ingestion is limited to `.pdf`, `.txt`, and `.md` files.
 - **In-Memory File Buffering**: Uploaded files are buffered in memory during upload and passed directly to background tasks. Very large files under high concurrent load can cause memory spikes. **File Limit 25MB Max.**
 
-### 2. Retrieval-Augmented Generation (RAG)
-- **Dense-Only Retrieval (No Hybrid / BM25)**: Retrieval is based purely on dense vector cosine similarity via `pgvector`. It does not combine sparse lexical search (BM25 / Full-Text Search). Rare exact keywords, product serial numbers, or acronyms may be missed if their vector cosine distance is high.
-- **No Cross-Encoder Re-ranker**: Top-5 retrieved chunks are ordered purely by bi-encoder cosine similarity. There is no second-stage re-ranking model (e.g., `bge-reranker`) to re-score relevance against the exact query nuance.
-- **Static Top-$K$ Retrieval ($K = 5$)**: The retrieval depth is fixed at 5 chunks. Complex, multi-page synthesis questions may miss necessary context, while simple factual questions may receive extra noise.
-- **Tenant-Wide Scope Without Document Filtering**: Vector search automatically runs across all ready documents in the user's account. Users cannot currently scope their query to a single selected document or folder.
-
-### 3. Background Processing & Infrastructure
+### 2. Background Processing & Infrastructure
 - **In-Process Background Tasks (`FastAPI BackgroundTasks`)**: Document chunking and embedding generation run in FastAPI's internal task runner rather than a distributed message queue (e.g., Celery/Redis). If the server restarts or crashes during processing, in-flight jobs are interrupted and documents remain stuck in `processing`.
 - **CPU-Bound Embedding Load**: FastEmbed runs ONNX models on the backend CPU. High volumes of concurrent document uploads can consume significant CPU resources.
-- **Binary Status Tracking**: Ingestion status transitions directly between `processing`, `ready`, and `failed` without granular percentage progress (e.g., "Chunking: 40%").
 
-### 4. Conversational Memory & Context
+### 3. Conversational Memory & Context
 - **Fixed History Truncation (Recent 4–6 Messages)**: Only the most recent messages are injected into prompt context. Long multi-turn conversations lose earlier discussion points.
 - **No Query Rewriting / HyDE**: Conversational follow-ups containing ambiguous pronouns (e.g., *"What were his main achievements there?"*) are embedded directly into vector search without contextual co-reference resolution.
 
-### 5. LLM & External AI Dependencies
+### 4. LLM & External AI Dependencies
 - **External API Rate Limits**: Generation relies on Google Gemini API availability and rate limits (e.g., Free Tier daily request quotas).
 - **Strict Anti-Hallucination Grounding**: The system prompt strictly enforces that missing facts must yield *"I cannot find this information in your uploaded documents."* While preventing hallucinations, it may occasionally reject answers that require cross-sentence inference across distant sections.
-
-### 6. Security & Production Scaling
-- **Stateless JWT Tokens**: Tokens are stateless with a 24-hour expiration. There is no distributed token blacklist (e.g., Redis-backed) for instantaneous token revocation before expiration.
-- **No API Rate Limiting**: REST and WebSocket endpoints currently lack per-IP or per-user rate limiters.
 
 
 
