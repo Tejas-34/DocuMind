@@ -16,7 +16,20 @@ export interface DocumentItem {
 export const documentService = {
   async uploadDocument(file: File): Promise<DocumentItem> {
     const formData = new FormData()
-    formData.append('file', file)
+    const ext = file.name.split('.').pop()?.toLowerCase() || ''
+    const mimeMap: Record<string, string> = {
+      pdf: 'application/pdf',
+      txt: 'text/plain',
+      md: 'text/markdown',
+    }
+
+    const isGenericMime = !file.type || file.type === 'application/octet-stream'
+    const canonicalMime = mimeMap[ext]
+    const uploadPayload = isGenericMime && canonicalMime
+      ? new File([file], file.name, { type: canonicalMime, lastModified: file.lastModified })
+      : file
+
+    formData.append('file', uploadPayload, uploadPayload.name)
     const res = await apiClient.post<DocumentItem>('/documents', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',

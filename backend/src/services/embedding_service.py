@@ -13,10 +13,24 @@ class EmbeddingService:
         if cls._model is None:
             try:
                 from fastembed import TextEmbedding
-                cls._model = TextEmbedding(model_name=settings.EMBEDDING_MODEL)
-                logger.info(f"Loaded FastEmbed model: {settings.EMBEDDING_MODEL}")
+
+                cls._model = TextEmbedding(
+                    model_name=settings.EMBEDDING_MODEL
+                )
+
+                logger.info(
+                    f"Loaded FastEmbed model: {settings.EMBEDDING_MODEL}"
+                )
+
             except Exception as e:
-                logger.warning(f"FastEmbed TextEmbedding not loaded directly: {e}. Fallback to deterministic encoder.")
+                logger.exception(
+                    f"Failed to load embedding model: {e}"
+                )
+                raise RuntimeError(
+                    "Semantic embedding model could not be loaded. "
+                    "RAG retrieval cannot continue."
+                ) from e
+
         return cls._model
 
     async def embed_query(self, text: str) -> List[float]:

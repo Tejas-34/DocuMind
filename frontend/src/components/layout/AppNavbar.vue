@@ -34,7 +34,7 @@
         class="flex items-center gap-2 h-full text-xs font-medium border-b-2 transition-all duration-150"
         :class="
           $route.path.startsWith('/documents')
-            ? 'border-[#153826] text-gray-900 dark:text-white font-semibold'
+            ? 'border-[#153826] dark:border-emerald-400 text-[#153826] dark:text-emerald-400 font-semibold'
             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
         "
       >
@@ -47,7 +47,7 @@
         class="flex items-center gap-2 h-full text-xs font-medium border-b-2 transition-all duration-150"
         :class="
           $route.path.startsWith('/chat')
-            ? 'border-[#153826] text-gray-900 dark:text-white font-semibold'
+            ? 'border-[#153826] dark:border-emerald-400 text-[#153826] dark:text-emerald-400 font-semibold'
             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
         "
       >
@@ -61,8 +61,8 @@
       <ThemeToggle />
 
       <template v-if="authStore.isAuthenticated">
-        <div class="flex items-center gap-2 pl-2 border-l border-gray-100 dark:border-gray-800">
-          <div class="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-xs font-bold text-gray-700 dark:text-gray-300">
+        <div class="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-800">
+          <div class="w-7 h-7 rounded-full bg-emerald-50 dark:bg-[#16291e] border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center text-xs font-bold text-emerald-800 dark:text-emerald-300">
             {{ userInitial }}
           </div>
           <span class="hidden sm:inline text-xs text-gray-700 dark:text-gray-300 max-w-[140px] truncate font-medium">

@@ -133,8 +133,8 @@ async def websocket_chat_endpoint(
                     # Execute tenant-scoped vector search
                     chunks = await rag_service.search_similar_chunks(user_id=user_id, query=query_text, top_k=5)
 
-                    # Build prompt and citations
-                    prompt, citations = rag_service.build_prompt_with_context(
+                    # Build prompt with candidate context
+                    prompt, candidate_chunks = rag_service.build_prompt_with_context(
                         query=query_text,
                         chunks=chunks,
                         conversation_history=history
@@ -155,15 +155,21 @@ async def websocket_chat_endpoint(
                             "content": token_chunk
                         })
 
-                    full_content = "".join(accumulated_response)
+                    raw_content = "".join(accumulated_response)
 
-                    # Persist assistant message
+                    # Extract ONLY used citations and clean response text
+                    clean_content, used_citations = rag_service.extract_used_citations(
+                        response_text=raw_content,
+                        chunks=chunks
+                    )
+
+                    # Persist assistant message with verified citations
                     asst_msg = Message(
                         user_id=user_id,
                         session_id=session_id,
                         role="assistant",
-                        content=full_content,
-                        citations=citations
+                        content=clean_content,
+                        citations=used_citations
                     )
                     db.add(asst_msg)
                     
@@ -184,8 +190,8 @@ async def websocket_chat_endpoint(
                         "client_msg_id": client_msg_id,
                         "message_id": str(asst_msg.id),
                         "role": "assistant",
-                        "content": full_content,
-                        "citations": citations
+                        "content": clean_content,
+                        "citations": used_citations
                     })
 
     except WebSocketDisconnect:

@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col md:flex-row h-[calc(100vh-4rem)] overflow-hidden relative">
+  <div class="flex flex-col md:flex-row h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)] overflow-hidden relative">
     <!-- Mobile Top Bar with Hamburger Trigger -->
     <div class="md:hidden flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-[#0f1713]">
       <button
@@ -130,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Menu, Plus, X } from 'lucide-vue-next'
 import { useChatStore } from '../stores/chat'
@@ -155,23 +155,7 @@ const isRenameModalOpen = ref(false)
 const renameSessionTarget = ref<ChatSession | null>(null)
 const renameTitle = ref('')
 
-onMounted(async () => {
-  await chatStore.fetchSessions()
-  const targetId = (route.params.sessionId as string) || (chatStore.sessions[0]?.id ?? null)
-  if (targetId) {
-    await handleSelectSession(targetId)
-  } else {
-    await handleNewChat()
-  }
-})
-
-const handleSelectSession = async (sessionId: string) => {
-  await chatStore.selectSession(sessionId)
-  if (route.params.sessionId !== sessionId) {
-    router.replace(`/chat/${sessionId}`)
-  }
-
-  // Connect WebSocket
+const connectSocketForSession = (sessionId: string) => {
   if (authStore.token) {
     ws.connect(sessionId, authStore.token, {
       onToken: (tokenChunk) => {
@@ -186,6 +170,55 @@ const handleSelectSession = async (sessionId: string) => {
     })
   }
 }
+
+const handleSelectSession = async (sessionId: string) => {
+  const success = await chatStore.selectSession(sessionId)
+  if (!success) {
+    // 404 Not Found or load error: redirect back to base /chat view
+    if (route.params.sessionId) {
+      await router.push('/chat')
+    }
+    // Attempt fallback to first available session or fresh chat
+    if (chatStore.sessions.length > 0 && chatStore.sessions[0].id !== sessionId) {
+      await handleSelectSession(chatStore.sessions[0].id)
+    } else {
+      await handleNewChat()
+    }
+    return
+  }
+
+  if (route.params.sessionId !== sessionId) {
+    router.replace(`/chat/${sessionId}`)
+  }
+
+  connectSocketForSession(sessionId)
+}
+
+onMounted(async () => {
+  await chatStore.fetchSessions()
+  const targetId = (route.params.sessionId as string) || (chatStore.sessions[0]?.id ?? null)
+  if (targetId) {
+    await handleSelectSession(targetId)
+  } else {
+    await handleNewChat()
+  }
+})
+
+// Watch for direct URL navigation changes between chat sessions or back to /chat
+watch(
+  () => route.params.sessionId,
+  async (newSessionId, oldSessionId) => {
+    if (newSessionId && newSessionId !== oldSessionId && newSessionId !== chatStore.activeSession?.id) {
+      await handleSelectSession(newSessionId as string)
+    } else if (!newSessionId && oldSessionId && !chatStore.isStreaming) {
+      if (chatStore.sessions.length > 0) {
+        await handleSelectSession(chatStore.sessions[0].id)
+      } else {
+        await handleNewChat()
+      }
+    }
+  }
+)
 
 const handleMobileSelectSession = async (sessionId: string) => {
   isMobileSidebarOpen.value = false

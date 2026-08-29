@@ -37,15 +37,18 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  const selectSession = async (sessionId: string) => {
+  const selectSession = async (sessionId: string): Promise<boolean> => {
     isLoadingActiveSession.value = true
     streamingContent.value = ''
     isStreaming.value = false
     try {
       const detailed = await chatService.getSession(sessionId)
       activeSession.value = detailed
+      return true
     } catch (e) {
-      console.error('Failed to load active session:', e)
+      console.warn(`[useChatStore] Failed to load session ${sessionId}:`, e)
+      activeSession.value = null
+      return false
     } finally {
       isLoadingActiveSession.value = false
     }

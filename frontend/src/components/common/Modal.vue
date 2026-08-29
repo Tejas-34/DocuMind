@@ -14,7 +14,7 @@
         @click.self="close"
       >
         <div
-          class="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 w-full max-w-md p-6 transform transition-all scale-100"
+          class="bg-white dark:bg-[#0c1611] rounded-3xl shadow-2xl border border-gray-200/80 dark:border-gray-800 w-full max-w-md p-6 transform transition-all scale-100"
         >
           <div class="flex items-center justify-between pb-3.5 border-b border-gray-100 dark:border-gray-800">
             <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">
