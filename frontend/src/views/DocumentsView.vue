@@ -31,10 +31,20 @@
     <!-- Upload Error Notice -->
     <div
       v-if="documentStore.uploadError"
-      class="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 text-xs font-medium flex items-center gap-2"
+      class="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 text-xs font-medium flex items-center justify-between gap-3 shadow-xs transition-all"
     >
-      <AlertCircle class="w-4 h-4 shrink-0" />
-      <span>{{ documentStore.uploadError }}</span>
+      <div class="flex items-center gap-2.5">
+        <AlertCircle class="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+        <span class="leading-relaxed">{{ documentStore.uploadError }}</span>
+      </div>
+      <button
+        type="button"
+        @click="documentStore.clearUploadError"
+        class="p-1 text-rose-400 hover:text-rose-700 dark:hover:text-rose-200 rounded-lg transition-colors cursor-pointer"
+        title="Dismiss error"
+      >
+        <X class="w-4 h-4" />
+      </button>
     </div>
 
     <!-- Documents List/Grid -->
@@ -59,7 +69,7 @@
       title="Document Details & Status"
       @close="isDetailsModalOpen = false"
     >
-      <div v-if="selectedDoc" class="space-y-3.5 font-sans text-xs">
+      <div v-if="selectedDoc" class="space-y-4 font-sans text-xs">
         <div>
           <span class="text-gray-500 dark:text-gray-400 block mb-1 font-medium">Filename</span>
           <span class="font-semibold text-gray-900 dark:text-white text-sm">{{ selectedDoc.filename }}</span>
@@ -81,8 +91,24 @@
           </div>
         </div>
         <div class="pt-1">
-          <span class="text-gray-500 dark:text-gray-400 block mb-1 font-medium">Status</span>
-          <StatusBadge :status="selectedDoc.status" />
+          <span class="text-gray-500 dark:text-gray-400 block mb-1 font-medium">Processing Status</span>
+          <div class="flex items-center gap-2">
+            <StatusBadge :status="selectedDoc.status" />
+          </div>
+        </div>
+
+        <!-- Failure Reason Callout Box -->
+        <div
+          v-if="selectedDoc.status === 'failed'"
+          class="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-300 space-y-1.5"
+        >
+          <div class="flex items-center gap-2 font-semibold text-xs text-rose-700 dark:text-rose-400">
+            <AlertCircle class="w-4 h-4 shrink-0" />
+            <span>Failure Reason</span>
+          </div>
+          <p class="text-[11px] leading-relaxed text-rose-700/90 dark:text-rose-300/90 break-words">
+            {{ selectedDoc.error_message || 'Document could not be processed. Please verify that the file contains readable text and is not encrypted.' }}
+          </p>
         </div>
       </div>
     </Modal>
@@ -91,7 +117,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Plus, AlertCircle } from 'lucide-vue-next'
+import { Plus, AlertCircle, X } from 'lucide-vue-next'
 import { useDocumentStore } from '../stores/document'
 import DragDropZone from '../components/documents/DragDropZone.vue'
 import DocumentGrid from '../components/documents/DocumentGrid.vue'

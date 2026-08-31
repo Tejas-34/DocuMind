@@ -21,6 +21,10 @@ export const useDocumentStore = defineStore('document', () => {
     }
   }
 
+  const clearUploadError = () => {
+    uploadError.value = null
+  }
+
   const uploadFile = async (file: File): Promise<boolean> => {
     isUploading.value = true
     uploadError.value = null
@@ -36,7 +40,17 @@ export const useDocumentStore = defineStore('document', () => {
       checkAndStartPolling()
       return true
     } catch (err: any) {
-      uploadError.value = err.response?.data?.detail || 'Failed to upload document.'
+      let detailMsg = 'Failed to upload document.'
+      if (err.response?.data?.detail) {
+        if (typeof err.response.data.detail === 'string') {
+          detailMsg = err.response.data.detail
+        } else if (Array.isArray(err.response.data.detail)) {
+          detailMsg = err.response.data.detail.map((e: any) => e.msg || JSON.stringify(e)).join(', ')
+        }
+      } else if (err.message) {
+        detailMsg = err.message
+      }
+      uploadError.value = `Upload failed for "${file.name}": ${detailMsg}`
       return false
     } finally {
       isUploading.value = false
@@ -93,6 +107,7 @@ export const useDocumentStore = defineStore('document', () => {
     fetchDocuments,
     uploadFile,
     deleteDocument,
+    clearUploadError,
     stopPolling,
   }
 })

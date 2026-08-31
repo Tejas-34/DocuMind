@@ -149,13 +149,24 @@
                 <span class="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400"></span>
                 Processing
               </span>
-              <span
-                v-else
-                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 dark:bg-[#290c10] text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60"
-              >
-                <span class="w-1.5 h-1.5 rounded-full bg-rose-500 dark:bg-rose-400"></span>
-                Failed
-              </span>
+              <div v-else class="flex flex-col gap-1 items-start">
+                <span
+                  class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 dark:bg-[#290c10] text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 cursor-pointer hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors"
+                  :title="doc.error_message || 'Processing failed. Click for details.'"
+                  @click.stop="$emit('viewDetails', doc)"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full bg-rose-500 dark:bg-rose-400"></span>
+                  <span>Failed</span>
+                  <AlertCircle class="w-3 h-3 text-rose-500 shrink-0" />
+                </span>
+                <span
+                  v-if="doc.error_message"
+                  class="text-[10px] text-rose-600 dark:text-rose-400/90 truncate max-w-[220px]"
+                  :title="doc.error_message"
+                >
+                  {{ doc.error_message }}
+                </span>
+              </div>
             </td>
 
             <!-- Actions -->
@@ -246,6 +257,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  AlertCircle,
 } from 'lucide-vue-next'
 import type { DocumentItem } from '../../services/documentService'
 

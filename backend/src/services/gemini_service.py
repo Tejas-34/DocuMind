@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import AsyncGenerator
 from src.core.config import settings
@@ -8,7 +9,11 @@ logger = logging.getLogger(__name__)
 class GeminiService:
     def __init__(self):
         self.api_key = settings.GEMINI_API_KEY
-        self.model_name = settings.GEMINI_MODEL
+        raw_model = (settings.GEMINI_MODEL or "gemini-2.5-flash").strip()
+        # Normalize invalid placeholder/legacy model names
+        if raw_model in ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.0-flash"]:
+            raw_model = "gemini-2.5-flash"
+        self.model_name = raw_model
         self.client = None
         if self.api_key:
             try:
@@ -32,17 +37,23 @@ class GeminiService:
 
         try:
             from google.genai import types
-            response_stream = await self.client.aio.models.generate_content_stream(
-                model=self.model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.0,
-                    system_instruction=system_instruction,
-                )
+            response_stream = await asyncio.wait_for(
+                self.client.aio.models.generate_content_stream(
+                    model=self.model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.0,
+                        system_instruction=system_instruction,
+                    )
+                ),
+                timeout=30.0
             )
             async for chunk in response_stream:
                 if chunk.text:
                     yield chunk.text
+        except asyncio.TimeoutError:
+            logger.error(f"Gemini API request timed out after 30s using model '{self.model_name}'")
+            yield f"\n[Error: Gemini AI model timed out after 30 seconds. Please check your network connection or try again.]"
         except Exception as e:
-            logger.exception(f"Gemini API streaming error: {e}")
+            logger.exception(f"Gemini API streaming error with model '{self.model_name}': {e}")
             yield f"\n[Error generating response: {str(e)}]"

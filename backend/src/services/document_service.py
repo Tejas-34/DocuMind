@@ -81,27 +81,23 @@ class DocumentService:
                 chunking_service = ChunkingService()
                 embedding_service = EmbeddingService()
 
-                # Extract and chunk
+                # 1. Extract and chunk text
                 if mime_type == "application/pdf" or filename.lower().endswith(".pdf"):
                     raw_chunks, total_pages = chunking_service.extract_and_chunk_pdf(file_bytes)
                 else:
                     raw_chunks, total_pages = chunking_service.extract_and_chunk_text(file_bytes)
 
                 if not raw_chunks:
-                    stmt = select(Document).where(Document.id == document_id, Document.user_id == user_id)
-                    res = await session.execute(stmt)
-                    doc = res.scalars().first()
-                    if doc:
-                        doc.status = "failed"
-                        doc.error_message = "No readable text content found in document."
-                        await session.commit()
-                    return
+                    raise ValueError("No readable text content found in document. Scanned image-only PDFs require OCR.")
 
-                # Generate embeddings locally
+                # 2. Generate embeddings locally
                 texts = [c["content"] for c in raw_chunks]
                 embeddings = await embedding_service.embed_documents(texts)
 
-                # Persist chunks
+                if not embeddings or len(embeddings) != len(raw_chunks):
+                    raise RuntimeError("Embedding generation failed for one or more text chunks.")
+
+                # 3. Persist chunks
                 for i, c in enumerate(raw_chunks):
                     chunk = Chunk(
                         user_id=user_id,
@@ -114,7 +110,7 @@ class DocumentService:
                     )
                     session.add(chunk)
 
-                # Update document status
+                # 4. Update document status to ready
                 stmt = select(Document).where(Document.id == document_id, Document.user_id == user_id)
                 res = await session.execute(stmt)
                 doc = res.scalars().first()
@@ -123,14 +119,18 @@ class DocumentService:
                     doc.total_pages = total_pages
                     doc.error_message = None
                     await session.commit()
-                logger.info(f"Successfully processed document {document_id} with {len(raw_chunks)} chunks.")
+                logger.info(f"Successfully processed document '{filename}' ({document_id}) with {len(raw_chunks)} chunks.")
 
             except Exception as e:
-                logger.exception(f"Failed to process document {document_id}: {e}")
-                stmt = select(Document).where(Document.id == document_id, Document.user_id == user_id)
-                res = await session.execute(stmt)
-                doc = res.scalars().first()
-                if doc:
-                    doc.status = "failed"
-                    doc.error_message = f"Processing error: {str(e)[:200]}"
-                    await session.commit()
+                error_reason = str(e).strip() or "Unknown document processing error"
+                logger.exception(f"Failed to process document '{filename}' ({document_id}): {error_reason}")
+                try:
+                    stmt = select(Document).where(Document.id == document_id, Document.user_id == user_id)
+                    res = await session.execute(stmt)
+                    doc = res.scalars().first()
+                    if doc:
+                        doc.status = "failed"
+                        doc.error_message = error_reason[:500]
+                        await session.commit()
+                except Exception as db_err:
+                    logger.exception(f"Failed to record failed status for document {document_id}: {db_err}")

@@ -97,43 +97,43 @@ async def websocket_chat_endpoint(
                     await websocket.send_json({"type": "error", "message": "Query cannot be empty"})
                     continue
 
-                async with AsyncSessionLocal() as db:
-                    rag_service = RAGService(db)
+                try:
+                    # 1. Persist user message to DB
+                    async with AsyncSessionLocal() as db:
+                        user_msg = Message(
+                            user_id=user_id,
+                            session_id=session_id,
+                            role="user",
+                            content=query_text
+                        )
+                        db.add(user_msg)
+                        await db.commit()
 
-                    # Persist user message
-                    user_msg = Message(
-                        user_id=user_id,
-                        session_id=session_id,
-                        role="user",
-                        content=query_text
-                    )
-                    db.add(user_msg)
-                    await db.commit()
-
-                    # Notify status
+                    # 2. Notify client that search is starting
                     await websocket.send_json({
                         "type": "status",
                         "step": "searching_documents",
                         "message": "Searching your uploaded documents..."
                     })
 
-                    # Load conversation history for context if not cleared
-                    history: List[Dict[str, str]] = []
-                    if not context_cleared:
-                        hist_stmt = (
-                            select(Message)
-                            .where(Message.session_id == session_id, Message.user_id == user_id)
-                            .order_by(Message.created_at.desc())
-                            .limit(6)
-                        )
-                        hist_res = await db.execute(hist_stmt)
-                        hist_msgs = list(reversed(hist_res.scalars().all()))
-                        history = [{"role": m.role, "content": m.content} for m in hist_msgs[:-1]] # exclude the newly added msg
+                    # 3. Load conversation history and perform vector search
+                    async with AsyncSessionLocal() as db:
+                        rag_service = RAGService(db)
+                        history: List[Dict[str, str]] = []
+                        if not context_cleared:
+                            hist_stmt = (
+                                select(Message)
+                                .where(Message.session_id == session_id, Message.user_id == user_id)
+                                .order_by(Message.created_at.desc())
+                                .limit(6)
+                            )
+                            hist_res = await db.execute(hist_stmt)
+                            hist_msgs = list(reversed(hist_res.scalars().all()))
+                            history = [{"role": m.role, "content": m.content} for m in hist_msgs[:-1]]
 
-                    # Execute tenant-scoped vector search
-                    chunks = await rag_service.search_similar_chunks(user_id=user_id, query=query_text, top_k=5)
+                        chunks = await rag_service.search_similar_chunks(user_id=user_id, query=query_text, top_k=5)
 
-                    # Build prompt with candidate context
+                    # 4. Build prompt with candidate context
                     prompt, candidate_chunks = rag_service.build_prompt_with_context(
                         query=query_text,
                         chunks=chunks,
@@ -146,7 +146,7 @@ async def websocket_chat_endpoint(
                         "message": "Streaming answer from documents..."
                     })
 
-                    # Stream LLM tokens asynchronously
+                    # 5. Stream LLM tokens (DB connection is NOT held open during streaming)
                     accumulated_response = []
                     async for token_chunk in gemini_service.stream_response(prompt=prompt):
                         accumulated_response.append(token_chunk)
@@ -157,48 +157,56 @@ async def websocket_chat_endpoint(
 
                     raw_content = "".join(accumulated_response)
 
-                    # Extract ONLY used citations and clean response text
+                    # 6. Extract used citations and clean response
                     clean_content, used_citations = rag_service.extract_used_citations(
                         response_text=raw_content,
                         chunks=chunks
                     )
 
-                    # Persist assistant message with verified citations
-                    asst_msg = Message(
-                        user_id=user_id,
-                        session_id=session_id,
-                        role="assistant",
-                        content=clean_content,
-                        citations=used_citations
-                    )
-                    db.add(asst_msg)
-                    
-                    # Update session timestamp & auto-title if first message
-                    session_stmt = select(ChatSession).where(ChatSession.id == session_id, ChatSession.user_id == user_id)
-                    s_res = await db.execute(session_stmt)
-                    s_obj = s_res.scalars().first()
-                    if s_obj and s_obj.title == "New Conversation":
-                        # Auto-title based on first query
-                        s_obj.title = query_text[:40] + ("..." if len(query_text) > 40 else "")
+                    # 7. Persist assistant message and update session title
+                    asst_id = str(uuid.uuid4())
+                    async with AsyncSessionLocal() as db:
+                        asst_msg = Message(
+                            user_id=user_id,
+                            session_id=session_id,
+                            role="assistant",
+                            content=clean_content,
+                            citations=used_citations
+                        )
+                        db.add(asst_msg)
 
-                    await db.commit()
-                    await db.refresh(asst_msg)
+                        session_stmt = select(ChatSession).where(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                        s_res = await db.execute(session_stmt)
+                        s_obj = s_res.scalars().first()
+                        if s_obj and s_obj.title == "New Conversation":
+                            s_obj.title = query_text[:40] + ("..." if len(query_text) > 40 else "")
 
-                    # Emit done frame
+                        await db.commit()
+                        await db.refresh(asst_msg)
+                        asst_id = str(asst_msg.id)
+
+                    # 8. Emit done frame
                     await websocket.send_json({
                         "type": "done",
                         "client_msg_id": client_msg_id,
-                        "message_id": str(asst_msg.id),
+                        "message_id": asst_id,
                         "role": "assistant",
                         "content": clean_content,
                         "citations": used_citations
                     })
 
+                except Exception as query_err:
+                    logger.exception(f"Error handling query in session {session_id}: {query_err}")
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": f"Failed to process query: {str(query_err)}"
+                    })
+
     except WebSocketDisconnect:
         logger.info(f"WebSocket client disconnected for session {session_id}")
     except Exception as e:
-        logger.exception(f"WebSocket error in session {session_id}: {e}")
+        logger.exception(f"WebSocket unhandled error in session {session_id}: {e}")
         try:
-            await websocket.send_json({"type": "error", "message": f"Server error: {str(e)}"})
+            await websocket.send_json({"type": "error", "message": f"Server connection error: {str(e)}"})
         except Exception:
             pass

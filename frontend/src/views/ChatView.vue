@@ -167,6 +167,9 @@ const connectSocketForSession = (sessionId: string) => {
       onContextCleared: () => {
         chatStore.clearContext()
       },
+      onError: (err) => {
+        chatStore.handleStreamingError(err.message)
+      },
     })
   }
 }

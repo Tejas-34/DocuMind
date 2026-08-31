@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 from typing import List, Any, Optional
@@ -14,12 +15,15 @@ class EmbeddingService:
             try:
                 from fastembed import TextEmbedding
 
-                cls._model = TextEmbedding(
-                    model_name=settings.EMBEDDING_MODEL
-                )
+                cache_dir = os.environ.get("FASTEMBED_CACHE_PATH", settings.FASTEMBED_CACHE_PATH)
+                kwargs = {"model_name": settings.EMBEDDING_MODEL}
+                if cache_dir and os.path.exists(cache_dir):
+                    kwargs["cache_dir"] = cache_dir
+
+                cls._model = TextEmbedding(**kwargs)
 
                 logger.info(
-                    f"Loaded FastEmbed model: {settings.EMBEDDING_MODEL}"
+                    f"Loaded FastEmbed model: {settings.EMBEDDING_MODEL} (cache: {cache_dir})"
                 )
 
             except Exception as e:
@@ -27,8 +31,7 @@ class EmbeddingService:
                     f"Failed to load embedding model: {e}"
                 )
                 raise RuntimeError(
-                    "Semantic embedding model could not be loaded. "
-                    "RAG retrieval cannot continue."
+                    f"Semantic embedding model '{settings.EMBEDDING_MODEL}' could not be loaded: {e}"
                 ) from e
 
         return cls._model
@@ -38,14 +41,15 @@ class EmbeddingService:
         return await loop.run_in_executor(None, self._sync_embed_query, text)
 
     def _sync_embed_query(self, text: str) -> List[float]:
-        model = self.get_model()
-        if model is not None:
-            try:
+        try:
+            model = self.get_model()
+            if model is not None:
                 embeddings = list(model.embed([text]))
                 if embeddings:
                     return embeddings[0].tolist()
-            except Exception as e:
-                logger.error(f"FastEmbed error encoding query: {e}")
+        except Exception as e:
+            logger.error(f"FastEmbed error encoding query: {e}")
+
         # Deterministic lightweight hash embedding (384-dim) fallback
         import hashlib
         import math
@@ -61,11 +65,11 @@ class EmbeddingService:
     def _sync_embed_documents(self, texts: List[str]) -> List[List[float]]:
         if not texts:
             return []
-        model = self.get_model()
-        if model is not None:
-            try:
+        try:
+            model = self.get_model()
+            if model is not None:
                 embeddings = [e.tolist() for e in model.embed(texts, batch_size=32)]
                 return embeddings
-            except Exception as e:
-                logger.error(f"FastEmbed error encoding documents: {e}")
+        except Exception as e:
+            logger.error(f"FastEmbed error encoding documents: {e}")
         return [self._sync_embed_query(t) for t in texts]

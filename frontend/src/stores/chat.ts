@@ -147,6 +147,30 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  const handleStreamingError = (errorMessage?: string) => {
+    if (activeSession.value) {
+      if (!activeSession.value.messages) activeSession.value.messages = []
+      // Resolve any pending message status
+      activeSession.value.messages.forEach((m) => {
+        if (m.isPending) m.isPending = false
+      })
+
+      const displayError = errorMessage || 'Failed to get an answer. Please verify server connection or API key.'
+      const errorMsg: Message = {
+        id: `err-${Date.now()}`,
+        user_id: activeSession.value.user_id,
+        session_id: activeSession.value.id,
+        role: 'assistant',
+        content: `⚠️ **Error:** ${displayError}`,
+        citations: [],
+        created_at: new Date().toISOString(),
+      }
+      activeSession.value.messages.push(errorMsg)
+    }
+    streamingContent.value = ''
+    isStreaming.value = false
+  }
+
   const clearContext = () => {
     streamingContent.value = ''
     isStreaming.value = false
@@ -168,6 +192,7 @@ export const useChatStore = defineStore('chat', () => {
     addOptimisticUserMessage,
     appendStreamingToken,
     finalizeStreamingMessage,
+    handleStreamingError,
     clearContext,
   }
 })

@@ -16,13 +16,32 @@ class ChunkingService:
         )
 
     def extract_and_chunk_pdf(self, file_bytes: bytes) -> tuple[List[Dict[str, Any]], int]:
-        reader = PdfReader(BytesIO(file_bytes))
+        try:
+            reader = PdfReader(BytesIO(file_bytes))
+        except Exception as e:
+            raise ValueError(f"Corrupted or invalid PDF file: {str(e)}") from e
+
+        if reader.is_encrypted:
+            try:
+                decrypted = reader.decrypt("")
+                if decrypted == 0:
+                    raise ValueError("PDF is password-protected. Please remove password encryption and re-upload.")
+            except Exception:
+                raise ValueError("PDF is password-protected. Please remove password encryption and re-upload.")
+
         total_pages = len(reader.pages)
+        if total_pages == 0:
+            raise ValueError("PDF document contains no pages.")
+
         chunks: List[Dict[str, Any]] = []
         chunk_idx = 0
 
         for page_num, page in enumerate(reader.pages, start=1):
-            page_text = page.extract_text() or ""
+            try:
+                page_text = page.extract_text() or ""
+            except Exception as e:
+                page_text = ""
+
             page_text = page_text.strip()
             if not page_text:
                 continue
@@ -30,7 +49,7 @@ class ChunkingService:
             page_chunks = self.splitter.split_text(page_text)
             for text in page_chunks:
                 text_clean = text.strip()
-                if len(text_clean) > 10: # filter out empty/trivial fragments
+                if len(text_clean) > 10:  # filter out empty/trivial fragments
                     chunks.append({
                         "chunk_index": chunk_idx,
                         "content": text_clean,
@@ -39,19 +58,27 @@ class ChunkingService:
                     })
                     chunk_idx += 1
 
+        if not chunks:
+            raise ValueError(
+                "No readable text found in PDF. Scanned image-only PDFs require OCR or selectable text."
+            )
+
         return chunks, total_pages
 
     def extract_and_chunk_text(self, file_bytes: bytes) -> tuple[List[Dict[str, Any]], int]:
         try:
             content = file_bytes.decode("utf-8")
         except UnicodeDecodeError:
-            content = file_bytes.decode("latin-1", errors="ignore")
+            try:
+                content = file_bytes.decode("latin-1")
+            except Exception as e:
+                raise ValueError(f"Unable to decode text file: {str(e)}") from e
 
         content = content.strip()
-        chunks: List[Dict[str, Any]] = []
         if not content:
-            return chunks, 1
+            raise ValueError("File is empty or contains only whitespace.")
 
+        chunks: List[Dict[str, Any]] = []
         text_chunks = self.splitter.split_text(content)
         for idx, text in enumerate(text_chunks):
             text_clean = text.strip()
@@ -62,5 +89,8 @@ class ChunkingService:
                     "page_number": 1,
                     "token_count": len(text_clean.split())
                 })
+
+        if not chunks:
+            raise ValueError("Document contains insufficient text content (minimum 10 characters required).")
 
         return chunks, 1

@@ -35,6 +35,17 @@ async def lifespan(app: FastAPI):
             logger.info("Database schema initialized and vector extension verified.")
         except Exception as e:
             logger.warning(f"Database auto-init note (run migrations if db is not ready): {e}")
+
+    # Pre-warm Embedding Model in background executor so the first user query has zero cold-start delay
+    try:
+        import asyncio
+        from src.services.embedding_service import EmbeddingService
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, EmbeddingService.get_model)
+        logger.info("Semantic embedding model pre-warmed successfully.")
+    except Exception as e:
+        logger.warning(f"Embedding model pre-warm note: {e}")
+
     yield
     logger.info("Shutting down DocuMind backend...")
     await engine.dispose()
