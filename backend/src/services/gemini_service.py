@@ -9,11 +9,7 @@ logger = logging.getLogger(__name__)
 class GeminiService:
     def __init__(self):
         self.api_key = settings.GEMINI_API_KEY
-        raw_model = (settings.GEMINI_MODEL or "gemini-2.5-flash").strip()
-        # Normalize invalid placeholder/legacy model names
-        if raw_model in ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.0-flash"]:
-            raw_model = "gemini-2.5-flash"
-        self.model_name = raw_model
+        self.model_name = (settings.GEMINI_MODEL or "gemini-3.6-flash").strip()
         self.client = None
         if self.api_key:
             try:

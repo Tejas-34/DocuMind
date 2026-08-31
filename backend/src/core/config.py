@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     
     # AI & Embeddings
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.6-flash"
     EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
     EMBEDDING_DIMENSION: int = 384
     FASTEMBED_CACHE_PATH: str = "/opt/fastembed_cache"
